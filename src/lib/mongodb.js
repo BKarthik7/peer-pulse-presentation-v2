@@ -46,12 +46,41 @@ const teamSchema = new mongoose.Schema({
   }
 });
 
+// Evaluation Schema
+const evaluationSchema = new mongoose.Schema({
+  teamName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  evaluatorUSN: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  ratings: [{
+    criterion: String,
+    label: String,
+    score: Number
+  }],
+  feedback: {
+    type: String,
+    trim: true
+  },
+  submittedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 // Create models
 const Participant = mongoose.models.Participant || mongoose.model('Participant', participantSchema);
 const Team = mongoose.models.Team || mongoose.model('Team', teamSchema);
+const Evaluation = mongoose.models.Evaluation || mongoose.model('Evaluation', evaluationSchema);
 
 module.exports = {
   connectDB,
   Participant,
-  Team
+  Team,
+  Evaluation
 }; 

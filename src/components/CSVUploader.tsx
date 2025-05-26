@@ -26,10 +26,18 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
     
     for (let line of lines) {
       if (line.trim()) {
-        // Parse each line into an array with a single USN
-        const usn = line.trim().replace(/"/g, '');
-        if (usn) {
-          result.push([usn]);
+        if (uploadType === 'participants') {
+          // For participants, each line is a single USN
+          const usn = line.trim().replace(/"/g, '');
+          if (usn) {
+            result.push([usn]);
+          }
+        } else {
+          // For teams, split by comma and trim each value
+          const values = line.split(',').map(value => value.trim().replace(/"/g, ''));
+          if (values.length > 0 && values[0]) { // Ensure at least team name exists
+            result.push(values);
+          }
         }
       }
     }
@@ -123,15 +131,28 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
         <CardContent className="p-4">
           <div className="text-sm text-gray-600">
             <p className="font-medium mb-1">CSV Format Guidelines:</p>
-            <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>One USN per line</li>
-              <li>No headers required</li>
-              <li>UTF-8 encoding recommended</li>
-              <li>Example format:</li>
-              <li className="ml-4 font-mono">1MS22CS038</li>
-              <li className="ml-4 font-mono">1MS22CS039</li>
-              <li className="ml-4 font-mono">1MS22CS037</li>
-            </ul>
+            {uploadType === 'participants' ? (
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>One USN per line</li>
+                <li>No headers required</li>
+                <li>UTF-8 encoding recommended</li>
+                <li>Example format:</li>
+                <li className="ml-4 font-mono">1MS22CS038</li>
+                <li className="ml-4 font-mono">1MS22CS039</li>
+                <li className="ml-4 font-mono">1MS22CS037</li>
+              </ul>
+            ) : (
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>One team per line</li>
+                <li>First column: team name</li>
+                <li>Following columns: team member USNs</li>
+                <li>No headers required</li>
+                <li>UTF-8 encoding recommended</li>
+                <li>Example format:</li>
+                <li className="ml-4 font-mono">Team Alpha,1MS22CS038,1MS22CS039,1MS22CS037</li>
+                <li className="ml-4 font-mono">Team Beta,1MS22CS040,1MS22CS041,1MS22CS042</li>
+              </ul>
+            )}
           </div>
         </CardContent>
       </Card>

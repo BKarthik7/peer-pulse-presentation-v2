@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const { connectDB, Participant, Team } = require('./src/lib/mongodb.js');
+const { connectDB, Participant, Team, Evaluation } = require('./src/lib/mongodb.js');
 
 const app = express();
 const httpServer = createServer(app);
@@ -76,9 +76,36 @@ io.on('connection', (socket) => {
     io.emit('evaluationForm', data);
   });
 
-  socket.on('evaluationSubmitted', (data) => {
+  socket.on('evaluationSubmitted', async (data) => {
     console.log('Evaluation submitted:', data);
-    io.emit('evaluationSubmitted', data);
+    try {
+      // Store evaluation in database
+      const evaluation = await Evaluation.create({
+        teamName: data.team,
+        evaluatorUSN: data.evaluator,
+        ratings: data.evaluation.ratings,
+        feedback: data.evaluation.feedback,
+        submittedAt: new Date()
+      });
+
+      // Emit the stored evaluation to all clients
+      io.emit('evaluationSubmitted', {
+        ...data,
+        evaluationId: evaluation._id
+      });
+
+      // Fetch all evaluations for the team and emit to admin
+      const teamEvaluations = await Evaluation.find({ teamName: data.team });
+      io.emit('teamEvaluations', {
+        team: data.team,
+        evaluations: teamEvaluations
+      });
+    } catch (error) {
+      console.error('Error storing evaluation:', error);
+      socket.emit('evaluationError', {
+        message: 'Failed to store evaluation'
+      });
+    }
   });
 
   socket.on('presentationReset', () => {

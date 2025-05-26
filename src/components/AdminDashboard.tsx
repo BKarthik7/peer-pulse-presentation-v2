@@ -27,6 +27,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [presentationStatus, setPresentationStatus] = useState<'idle' | 'starting' | 'active' | 'evaluation'>('idle');
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [teamEvaluations, setTeamEvaluations] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -43,13 +44,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       console.error('Socket.IO connection error:', error);
     });
 
+    socketInstance.on('teamEvaluations', (data) => {
+      if (data.team === selectedTeam) {
+        setTeamEvaluations(data.evaluations);
+      }
+    });
+
     setSocket(socketInstance);
 
     // Cleanup on unmount
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [selectedTeam]);
 
   const handleUSNUpload = (data: string[][]) => {
     const usns = data.flat().filter(usn => usn && usn.trim());
@@ -109,6 +116,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setPresentationStatus('idle');
     setSelectedTeam('');
     socket?.emit('presentationReset');
+  };
+
+  const calculateAverageScore = (evaluations: any[]) => {
+    if (evaluations.length === 0) return 0;
+    
+    const totalScore = evaluations.reduce((sum, evaluation) => {
+      const criteriaScore = evaluation.ratings.reduce((critSum: number, rating: any) => critSum + rating.score, 0);
+      return sum + (criteriaScore / evaluation.ratings.length);
+    }, 0);
+    
+    return (totalScore / evaluations.length).toFixed(1);
   };
 
   return (
@@ -309,7 +327,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <CardTitle>Evaluation Results</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Results will appear here after evaluations are submitted</p>
+                {selectedTeam ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">{selectedTeam}</h3>
+                      <Badge variant="secondary">
+                        Average Score: {calculateAverageScore(teamEvaluations)}/10
+                      </Badge>
+                    </div>
+                    
+                    {teamEvaluations.length > 0 ? (
+                      <div className="space-y-4">
+                        {teamEvaluations.map((evaluation, index) => (
+                          <Card key={index} className="p-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Evaluator: {evaluation.evaluatorUSN}</span>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(evaluation.submittedAt).toLocaleString()}
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                {evaluation.ratings.map((rating: any, idx: number) => (
+                                  <div key={idx} className="space-y-1">
+                                    <span className="text-sm font-medium">{rating.label}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                          className="bg-blue-600 h-2 rounded-full"
+                                          style={{ width: `${(rating.score / 10) * 100}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-sm">{rating.score}/10</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {evaluation.feedback && (
+                                <div className="mt-4">
+                                  <h4 className="text-sm font-medium mb-1">Feedback:</h4>
+                                  <p className="text-sm text-gray-600">{evaluation.feedback}</p>
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-center py-4">
+                        No evaluations submitted yet
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">
+                    Select a team to view evaluation results
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
