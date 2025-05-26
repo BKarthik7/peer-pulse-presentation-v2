@@ -1,4 +1,3 @@
-
 import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +9,14 @@ interface CSVUploaderProps {
   onUpload: (data: string[][]) => void;
   acceptedTypes?: string;
   description?: string;
+  uploadType: 'participants' | 'teams';
 }
 
 const CSVUploader: React.FC<CSVUploaderProps> = ({ 
   onUpload, 
   acceptedTypes = '.csv', 
-  description = 'Upload a CSV file' 
+  description = 'Upload a CSV file',
+  uploadType
 }) => {
   const { toast } = useToast();
 
@@ -25,16 +26,18 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
     
     for (let line of lines) {
       if (line.trim()) {
-        // Simple CSV parsing - split by comma and trim whitespace
-        const values = line.split(',').map(value => value.trim().replace(/"/g, ''));
-        result.push(values);
+        // Parse each line into an array with a single USN
+        const usn = line.trim().replace(/"/g, '');
+        if (usn) {
+          result.push([usn]);
+        }
       }
     }
     
     return result;
   };
 
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -48,7 +51,7 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const data = parseCSV(text);
@@ -62,15 +65,35 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
           return;
         }
 
+        // Upload to MongoDB through API
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: uploadType,
+            data: data
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const result = await response.json();
+        
+        // Call the original onUpload callback
         onUpload(data);
+        
         toast({
           title: "File uploaded successfully",
-          description: `Processed ${data.length} rows.`,
+          description: result.message,
         });
       } catch (error) {
         toast({
-          title: "Error parsing file",
-          description: "Please check your CSV format.",
+          title: "Error uploading file",
+          description: "Please check your CSV format and try again.",
           variant: "destructive",
         });
       }
@@ -79,7 +102,7 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
     reader.readAsText(file);
     // Clear the input
     event.target.value = '';
-  }, [onUpload, toast]);
+  }, [onUpload, toast, uploadType]);
 
   return (
     <div className="space-y-4">
@@ -101,10 +124,13 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({
           <div className="text-sm text-gray-600">
             <p className="font-medium mb-1">CSV Format Guidelines:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>For USNs: One USN per row or comma-separated</li>
-              <li>For Teams: team_name, usn1, usn2, usn3, ...</li>
+              <li>One USN per line</li>
               <li>No headers required</li>
               <li>UTF-8 encoding recommended</li>
+              <li>Example format:</li>
+              <li className="ml-4 font-mono">1MS22CS038</li>
+              <li className="ml-4 font-mono">1MS22CS039</li>
+              <li className="ml-4 font-mono">1MS22CS037</li>
             </ul>
           </div>
         </CardContent>

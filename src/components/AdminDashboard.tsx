@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import Timer from '@/components/Timer';
 import EvaluationForm from '@/components/EvaluationForm';
 import CSVUploader from '@/components/CSVUploader';
-import io from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
 interface Team {
   name: string;
@@ -27,28 +26,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [presentationStatus, setPresentationStatus] = useState<'idle' | 'starting' | 'active' | 'evaluation'>('idle');
-  const [socket, setSocket] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Mock socket connection for demo
-    const mockSocket = {
-      emit: (event: string, data: any) => {
-        console.log('Socket emit:', event, data);
-      },
-      on: (event: string, callback: Function) => {
-        console.log('Socket listener added for:', event);
-      },
-      disconnect: () => {
-        console.log('Socket disconnected');
-      }
-    };
-    setSocket(mockSocket);
+    // Connect to Socket.IO server
+    const socketInstance = io('http://localhost:8080', {
+      withCredentials: true
+    });
 
+    socketInstance.on('connect', () => {
+      console.log('Connected to Socket.IO server');
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+    });
+
+    setSocket(socketInstance);
+
+    // Cleanup on unmount
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      socketInstance.disconnect();
     };
   }, []);
 
@@ -144,6 +143,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     onUpload={handleUSNUpload}
                     acceptedTypes=".csv"
                     description="Upload a CSV file containing USNs"
+                    uploadType="participants"
                   />
                   {usnList.length > 0 && (
                     <div className="mt-4">
@@ -170,6 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     onUpload={handleTeamUpload}
                     acceptedTypes=".csv"
                     description="Upload teams: team_name, usn1, usn2, ..."
+                    uploadType="teams"
                   />
                   {teams.length > 0 && (
                     <div className="mt-4">

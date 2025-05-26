@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import Timer from '@/components/Timer';
 import PeerEvaluationForm from '@/components/PeerEvaluationForm';
 import { useToast } from '@/hooks/use-toast';
-import io from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
 interface PeerInterfaceProps {
   usn: string;
@@ -18,47 +17,27 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
   const [currentTeam, setCurrentTeam] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [evaluationForm, setEvaluationForm] = useState<any>(null);
-  const [socket, setSocket] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Mock socket connection for demo
-    const mockSocket = {
-      emit: (event: string, data: any) => {
-        console.log('Peer socket emit:', event, data);
-      },
-      on: (event: string, callback: Function) => {
-        console.log('Peer socket listener added for:', event);
-        
-        // Mock some socket events for demo
-        if (event === 'presentationStarting') {
-          setTimeout(() => {
-            callback({ team: 'Team Alpha' });
-          }, 2000);
-        }
-        if (event === 'presentationStarted') {
-          setTimeout(() => {
-            callback({ team: 'Team Alpha' });
-          }, 5000);
-        }
-        if (event === 'timeSync') {
-          // Mock time sync
-          let time = 0;
-          const interval = setInterval(() => {
-            time += 1;
-            callback({ time });
-          }, 1000);
-          setTimeout(() => clearInterval(interval), 30000);
-        }
-      },
-      disconnect: () => {
-        console.log('Peer socket disconnected');
-      }
-    };
-    setSocket(mockSocket);
+    // Connect to Socket.IO server
+    const socketInstance = io('http://localhost:8080', {
+      withCredentials: true
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('Connected to Socket.IO server');
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+    });
+
+    setSocket(socketInstance);
 
     // Set up socket listeners
-    mockSocket.on('presentationStarting', (data: { team: string }) => {
+    socketInstance.on('presentationStarting', (data: { team: string }) => {
       setCurrentTeam(data.team);
       setPresentationStatus('starting');
       toast({
@@ -67,7 +46,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    mockSocket.on('presentationStarted', (data: { team: string }) => {
+    socketInstance.on('presentationStarted', (data: { team: string }) => {
       setCurrentTeam(data.team);
       setPresentationStatus('active');
       toast({
@@ -76,7 +55,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    mockSocket.on('presentationEnded', (data: { team: string }) => {
+    socketInstance.on('presentationEnded', (data: { team: string }) => {
       setPresentationStatus('evaluation');
       toast({
         title: "Presentation Ended",
@@ -84,11 +63,11 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    mockSocket.on('timeSync', (data: { time: number }) => {
+    socketInstance.on('timeSync', (data: { time: number }) => {
       setCurrentTime(data.time);
     });
 
-    mockSocket.on('evaluationForm', (data: { team: string, form: any }) => {
+    socketInstance.on('evaluationForm', (data: { team: string, form: any }) => {
       setEvaluationForm(data.form);
       toast({
         title: "Evaluation Form Available",
@@ -96,17 +75,16 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    mockSocket.on('presentationReset', () => {
+    socketInstance.on('presentationReset', () => {
       setPresentationStatus('waiting');
       setCurrentTeam('');
       setCurrentTime(0);
       setEvaluationForm(null);
     });
 
+    // Cleanup on unmount
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      socketInstance.disconnect();
     };
   }, [toast]);
 
