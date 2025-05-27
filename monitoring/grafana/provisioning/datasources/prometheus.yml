@@ -6,3 +6,7 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
+    basicAuth: false
+    withCredentials: true
+    version: 1
+    editable: true

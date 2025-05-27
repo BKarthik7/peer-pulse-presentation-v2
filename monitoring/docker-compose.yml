@@ -9,6 +9,8 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
+    networks:
+      - monitoring
     restart: always
 
   grafana:
@@ -22,7 +24,13 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
     restart: always
+
+networks:
+  monitoring:
+    driver: bridge
 
 volumes:
   prometheus_data:

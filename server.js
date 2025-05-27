@@ -4,7 +4,7 @@ import Pusher from 'pusher';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { register, Counter } from 'prom-client';
+import { register, Counter, Histogram } from 'prom-client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +22,13 @@ const httpRequestCounter = new Counter({
   labelNames: ['method', 'path', 'status']
 });
 
+const requestDuration = new Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'path', 'status'],
+  buckets: [0.1, 0.3, 0.5, 1, 3, 5, 10]
+});
+
 // Add middleware to count requests
 app.use((req, res, next) => {
   const start = Date.now();
@@ -33,6 +40,11 @@ app.use((req, res, next) => {
       path: req.path,
       status: res.statusCode.toString()
     });
+    requestDuration.observe({
+      method: req.method,
+      path: req.path,
+      status: res.statusCode.toString()
+    }, duration / 1000);
   });
   
   next();
