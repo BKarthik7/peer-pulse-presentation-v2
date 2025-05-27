@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# Peer Pulse Presentation
 
-## Project info
+A modern web application for peer evaluation and feedback systems, built for presentation purposes.
 
-**URL**: https://lovable.dev/projects/635855a4-1081-411c-a8b3-66f331041cc2
+## Project Overview
 
-## How can I edit this code?
+This project demonstrates a comprehensive peer evaluation system that allows users to:
+- Submit peer feedback and evaluations
+- View evaluation metrics and analytics
+- Manage peer review processes
+- Present evaluation data in an intuitive interface
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/635855a4-1081-411c-a8b3-66f331041cc2) and start prompting.
+Make sure you have Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Follow these steps to run the project locally:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Step 1: Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Step 2: Navigate to the project directory
+cd peer-pulse-presentation
 
-# Step 3: Install the necessary dependencies.
+# Step 3: Install the necessary dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Technologies Used
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This project is built with modern web technologies:
 
-**Use GitHub Codespaces**
+- **Vite** - Fast build tool and development server
+- **TypeScript** - Type-safe JavaScript
+- **React** - Component-based UI library
+- **shadcn-ui** - Modern UI component library
+- **Tailwind CSS** - Utility-first CSS framework
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Features
 
-## What technologies are used for this project?
+- Interactive peer evaluation forms
+- Real-time feedback display
+- Responsive design for all devices
+- Modern and intuitive user interface
+- Data visualization for evaluation metrics
 
-This project is built with:
+## Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+peer-pulse-presentation/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Application pages
+│   ├── utils/         # Utility functions
+│   └── styles/        # CSS and styling files
+├── public/            # Static assets
+└── docs/             # Documentation files
+```
 
-## How can I deploy this project?
+## Contributing
 
-Simply open [Lovable](https://lovable.dev/projects/635855a4-1081-411c-a8b3-66f331041cc2) and click on Share -> Publish.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## Can I connect a custom domain to my Lovable project?
+## License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is created for presentation and educational purposes.
