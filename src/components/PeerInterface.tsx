@@ -21,9 +21,10 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Connect to Socket.IO server
-    const socketInstance = io('http://localhost:8080', {
-      withCredentials: true
+    // Connect to Socket.IO server using the current origin
+    const socketInstance = io(window.location.origin, {
+      withCredentials: true,
+      path: '/socket.io'
     });
 
     socketInstance.on('connect', () => {
@@ -55,7 +56,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    socketInstance.on('presentationEnded', (data: { team: string }) => {
+    socketInstance.on('presentationEnded', () => {
       setPresentationStatus('evaluation');
       toast({
         title: "Presentation Ended",

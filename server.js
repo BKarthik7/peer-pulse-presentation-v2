@@ -10,7 +10,7 @@ const httpServer = createServer(app);
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: true,
+  origin: process.env.VERCEL_URL || true,
   credentials: true
 }));
 
@@ -24,9 +24,10 @@ app.get('/health', (req, res) => {
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
-    origin: true,
+    origin: process.env.VERCEL_URL || true,
     credentials: true
-  }
+  },
+  path: '/socket.io'
 });
 
 // Connect to MongoDB with retry logic
@@ -194,4 +195,4 @@ const port = 8080;
 httpServer.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   console.log('Socket.IO server is ready');
-}); 
+});

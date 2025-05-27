@@ -7,20 +7,28 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 3000,
-    proxy: {
-      '/api': 'http://localhost:8080',
-      '/socket.io': {
-        target: 'http://localhost:8080',
-        ws: true
-      }
-    }
   },
-  plugins: [
-    react(),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: mode === 'development',
+    minify: mode === 'production',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  // Add Vercel specific configuration
+  vercel: {
+    // Enable Vercel's Edge Functions
+    edge: true,
+    // Enable Vercel's Serverless Functions
+    serverless: true
+  }
 }));
