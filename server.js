@@ -4,6 +4,7 @@ import Pusher from 'pusher';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { register, Counter } from 'prom-client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,41 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Initialize metrics
+const httpRequestCounter = new Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'path', 'status']
+});
+
+// Add middleware to count requests
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    httpRequestCounter.inc({
+      method: req.method,
+      path: req.path,
+      status: res.statusCode.toString()
+    });
+  });
+  
+  next();
+});
+
+// Metrics endpoint
+app.get('/api/metrics', async (req, res) => {
+  try {
+    const metrics = await register.metrics();
+    res.setHeader('Content-Type', register.contentType);
+    res.end(metrics);
+  } catch (error) {
+    console.error('Error collecting metrics:', error);
+    res.status(500).end('Error collecting metrics');
+  }
+});
 
 // Initialize Pusher
 const pusher = new Pusher({
