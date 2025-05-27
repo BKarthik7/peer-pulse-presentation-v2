@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import Timer from '@/components/Timer';
 import EvaluationForm from '@/components/EvaluationForm';
 import CSVUploader from '@/components/CSVUploader';
-import { io, Socket } from 'socket.io-client';
+import Pusher from 'pusher-js';
 
 interface Team {
   name: string;
@@ -25,36 +25,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [presentationStatus, setPresentationStatus] = useState<'idle' | 'starting' | 'active' | 'evaluation'>('idle');
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [teamEvaluations, setTeamEvaluations] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Connect to Socket.IO server using the current origin
-    const socketInstance = io(window.location.origin, {
-      withCredentials: true,
-      path: '/socket.io'
+    // Initialize Pusher
+    const pusherInstance = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+      authEndpoint: '/api/pusher-auth',
     });
 
-    socketInstance.on('connect', () => {
-      console.log('Connected to Socket.IO server');
-    });
+    // Subscribe to the presentation channel
+    const channel = pusherInstance.subscribe('presentation');
 
-    socketInstance.on('connect_error', (error) => {
-      console.error('Socket.IO connection error:', error);
-    });
-
-    socketInstance.on('teamEvaluations', (data) => {
+    // Set up Pusher event listeners
+    channel.bind('teamEvaluations', (data: { team: string, evaluations: any[] }) => {
       if (data.team === selectedTeam) {
         setTeamEvaluations(data.evaluations);
       }
     });
 
-    setSocket(socketInstance);
-
     // Cleanup on unmount
     return () => {
-      socketInstance.disconnect();
+      channel.unbind_all();
+      pusherInstance.disconnect();
     };
   }, [selectedTeam]);
 
@@ -80,7 +74,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     });
   };
 
-  const startPresentation = () => {
+  const startPresentation = async () => {
     if (!selectedTeam) {
       toast({
         title: "No team selected",
@@ -90,32 +84,162 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    setPresentationStatus('starting');
-    socket?.emit('presentationStarting', { team: selectedTeam });
-    
-    setTimeout(() => {
-      setPresentationStatus('active');
-      socket?.emit('presentationStarted', { team: selectedTeam });
-      toast({
-        title: "Presentation Started",
-        description: `${selectedTeam} presentation is now active.`,
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'presentationStarting',
+          data: { team: selectedTeam }
+        }),
       });
-    }, 3000);
+
+      if (!response.ok) {
+        throw new Error('Failed to start presentation');
+      }
+
+      setPresentationStatus('starting');
+      
+      setTimeout(async () => {
+        const startResponse = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event: 'presentationStarted',
+            data: { team: selectedTeam }
+          }),
+        });
+
+        if (!startResponse.ok) {
+          throw new Error('Failed to start presentation');
+        }
+
+        setPresentationStatus('active');
+        toast({
+          title: "Presentation Started",
+          description: `${selectedTeam} presentation is now active.`,
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('Error starting presentation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start presentation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const endPresentation = () => {
-    setPresentationStatus('evaluation');
-    socket?.emit('presentationEnded', { team: selectedTeam });
-    toast({
-      title: "Presentation Ended",
-      description: "Moving to evaluation phase.",
-    });
+  const endPresentation = async () => {
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'presentationEnded',
+          data: { team: selectedTeam }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to end presentation');
+      }
+
+      setPresentationStatus('evaluation');
+      toast({
+        title: "Presentation Ended",
+        description: "Moving to evaluation phase.",
+      });
+    } catch (error) {
+      console.error('Error ending presentation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to end presentation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const resetPresentation = () => {
-    setPresentationStatus('idle');
-    setSelectedTeam('');
-    socket?.emit('presentationReset');
+  const resetPresentation = async () => {
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'presentationReset'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset presentation');
+      }
+
+      setPresentationStatus('idle');
+      setSelectedTeam('');
+    } catch (error) {
+      console.error('Error resetting presentation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset presentation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTimeSync = async (time: number) => {
+    try {
+      await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'timeSync',
+          data: { time, team: selectedTeam }
+        }),
+      });
+    } catch (error) {
+      console.error('Error syncing time:', error);
+    }
+  };
+
+  const handleEvaluationForm = async (evaluationData: any) => {
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'evaluationForm',
+          data: { team: selectedTeam, form: evaluationData }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send evaluation form');
+      }
+
+      toast({
+        title: "Evaluation Sent",
+        description: "Evaluation form has been sent to peers.",
+      });
+    } catch (error) {
+      console.error('Error sending evaluation form:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send evaluation form. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const calculateAverageScore = (evaluations: any[]) => {
@@ -287,9 +411,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     {(presentationStatus === 'active' || presentationStatus === 'starting') && (
                       <Timer 
                         isActive={presentationStatus === 'active'}
-                        onTimeUpdate={(time) => {
-                          socket?.emit('timeSync', { time, team: selectedTeam });
-                        }}
+                        onTimeUpdate={handleTimeSync}
                       />
                     )}
                   </div>
@@ -302,14 +424,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             {presentationStatus === 'evaluation' && selectedTeam && (
               <EvaluationForm 
                 teamName={selectedTeam}
-                onSubmit={(evaluationData) => {
-                  console.log('Evaluation submitted:', evaluationData);
-                  toast({
-                    title: "Evaluation Sent",
-                    description: "Evaluation form has been sent to peers.",
-                  });
-                  socket?.emit('evaluationForm', { team: selectedTeam, form: evaluationData });
-                }}
+                onSubmit={handleEvaluationForm}
               />
             )}
             {presentationStatus !== 'evaluation' && (

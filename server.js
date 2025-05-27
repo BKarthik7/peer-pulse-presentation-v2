@@ -1,198 +1,140 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const { connectDB, Participant, Team, Evaluation } = require('./src/lib/mongodb.js');
+import express from 'express';
+import cors from 'cors';
+import Pusher from 'pusher';
+import mongoose from 'mongoose';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const httpServer = createServer(app);
 
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.VERCEL_URL || true,
-  credentials: true
-}));
-
+// Middleware
+app.use(cors());
 app.use(express.json());
+
+// Initialize Pusher
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.PUSHER_CLUSTER,
+  useTLS: true
+});
+
+// MongoDB Schema
+const evaluationSchema = new mongoose.Schema({
+  teamName: String,
+  evaluatorUSN: String,
+  ratings: Object,
+  feedback: String,
+  submittedAt: Date
+});
+
+const Evaluation = mongoose.models.Evaluation || mongoose.model('Evaluation', evaluationSchema);
+
+// MongoDB connection
+const connectDB = async () => {
+  try {
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('MongoDB connected successfully');
+    }
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+};
+
+// API Routes
+app.post('/api/upload', async (req, res) => {
+  try {
+    await connectDB();
+    const { event, data, type } = req.body;
+
+    // Handle CSV upload
+    if (type === 'participants' || type === 'teams') {
+      // For now, just acknowledge the upload
+      return res.status(200).json({ 
+        message: `Successfully processed ${type} upload`,
+        count: data.length 
+      });
+    }
+
+    // Handle different events
+    switch (event) {
+      case 'presentationStarting':
+      case 'presentationStarted':
+      case 'presentationEnded':
+      case 'timeSync':
+      case 'evaluationForm':
+      case 'presentationReset':
+        await pusher.trigger('presentation', event, data);
+        break;
+
+      case 'evaluationSubmitted':
+        // Store evaluation in database
+        const evaluation = await Evaluation.create({
+          teamName: data.team,
+          evaluatorUSN: data.evaluator,
+          ratings: data.evaluation.ratings,
+          feedback: data.evaluation.feedback,
+          submittedAt: new Date()
+        });
+
+        // Emit the stored evaluation to all clients
+        await pusher.trigger('presentation', 'evaluationSubmitted', {
+          ...data,
+          evaluationId: evaluation._id
+        });
+
+        // Fetch all evaluations for the team and emit to admin
+        const teamEvaluations = await Evaluation.find({ teamName: data.team });
+        await pusher.trigger('presentation', 'teamEvaluations', {
+          team: data.team,
+          evaluations: teamEvaluations
+        });
+        break;
+
+      default:
+        return res.status(400).json({ message: 'Invalid event type' });
+    }
+
+    res.status(200).json({ message: 'Event processed successfully' });
+  } catch (error) {
+    console.error('Error processing event:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/api/test', (req, res) => {
+  res.status(200).json({ message: 'Hello World' });
+});
+
+app.get('/api/', (req, res) => {
+  res.status(200).json({ message: 'Hello World' });
+});
+
+// Pusher authentication endpoint
+app.post('/api/pusher-auth', (req, res) => {
+  const { socket_id, channel_name } = req.body;
+  const authResponse = pusher.authorizeChannel(socket_id, channel_name);
+  res.status(200).json(authResponse);
+});
 
 // Basic health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Socket.IO setup
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.VERCEL_URL || true,
-    credentials: true
-  },
-  path: '/socket.io'
+// Serve static files
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Handle all other routes by serving index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-// Connect to MongoDB with retry logic
-let isConnected = false;
-const connectWithRetry = async () => {
-  try {
-    await connectDB();
-    isConnected = true;
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    isConnected = false;
-    // Retry connection after 5 seconds
-    setTimeout(connectWithRetry, 5000);
-  }
-};
-
-connectWithRetry();
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-
-  // Handle presentation events
-  socket.on('presentationStarting', (data) => {
-    console.log('Presentation starting:', data);
-    io.emit('presentationStarting', data);
-  });
-
-  socket.on('presentationStarted', (data) => {
-    console.log('Presentation started:', data);
-    io.emit('presentationStarted', data);
-  });
-
-  socket.on('presentationEnded', (data) => {
-    console.log('Presentation ended:', data);
-    io.emit('presentationEnded', data);
-  });
-
-  socket.on('timeSync', (data) => {
-    console.log('Time sync:', data);
-    io.emit('timeSync', data);
-  });
-
-  socket.on('evaluationForm', (data) => {
-    console.log('Evaluation form:', data);
-    io.emit('evaluationForm', data);
-  });
-
-  socket.on('evaluationSubmitted', async (data) => {
-    console.log('Evaluation submitted:', data);
-    try {
-      // Store evaluation in database
-      const evaluation = await Evaluation.create({
-        teamName: data.team,
-        evaluatorUSN: data.evaluator,
-        ratings: data.evaluation.ratings,
-        feedback: data.evaluation.feedback,
-        submittedAt: new Date()
-      });
-
-      // Emit the stored evaluation to all clients
-      io.emit('evaluationSubmitted', {
-        ...data,
-        evaluationId: evaluation._id
-      });
-
-      // Fetch all evaluations for the team and emit to admin
-      const teamEvaluations = await Evaluation.find({ teamName: data.team });
-      io.emit('teamEvaluations', {
-        team: data.team,
-        evaluations: teamEvaluations
-      });
-    } catch (error) {
-      console.error('Error storing evaluation:', error);
-      socket.emit('evaluationError', {
-        message: 'Failed to store evaluation'
-      });
-    }
-  });
-
-  socket.on('presentationReset', () => {
-    console.log('Presentation reset');
-    io.emit('presentationReset');
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
-});
-
-// Upload endpoint
-app.post('/api/upload', async (req, res) => {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  if (!isConnected) {
-    return res.status(503).json({ message: 'Database connection not available' });
-  }
-
-  try {
-    const { type, data } = req.body;
-
-    if (type === 'participants') {
-      // Handle participant upload - data is already in the correct format [[usn1], [usn2], ...]
-      const usns = data.map((row) => row[0]).filter((usn) => usn && usn.trim());
-      
-      // Create participants in bulk
-      const participants = await Promise.all(
-        usns.map(async (usn) => {
-          try {
-            return await Participant.create({ usn });
-          } catch (error) {
-            // Skip if USN already exists
-            if (error.code === 11000) return null;
-            throw error;
-          }
-        })
-      );
-
-      const createdParticipants = participants.filter(p => p !== null);
-      return res.status(200).json({
-        message: 'Participants uploaded successfully',
-        count: createdParticipants.length
-      });
-    }
-
-    if (type === 'teams') {
-      // Handle team upload
-      const teams = data.map((row) => ({
-        name: row[0] || '',
-        members: row.slice(1).filter((member) => member && member.trim())
-      })).filter((team) => team.name);
-
-      // Create teams in bulk
-      const createdTeams = await Promise.all(
-        teams.map(async (team) => {
-          try {
-            return await Team.create(team);
-          } catch (error) {
-            console.error('Error creating team:', error);
-            return null;
-          }
-        })
-      );
-
-      const successfulTeams = createdTeams.filter(t => t !== null);
-      return res.status(200).json({
-        message: 'Teams uploaded successfully',
-        count: successfulTeams.length
-      });
-    }
-
-    return res.status(400).json({ message: 'Invalid upload type' });
-  } catch (error) {
-    console.error('Upload error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-const port = 8080;
-
-// Start server
-httpServer.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-  console.log('Socket.IO server is ready');
-});
+// Export the Express app for Vercel
+export default app;

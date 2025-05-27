@@ -1,16 +1,6 @@
 import { Request, Response } from 'express';
-const { connectDB, Participant, Team } = require('@/lib/mongodb');
-
-interface ParticipantType {
-  usn: string;
-  _id?: string;
-}
-
-interface TeamType {
-  name: string;
-  members: string[];
-  _id?: string;
-}
+import { connectDB, EvaluationModel } from '@/lib/mongodb';
+import { pusherServer, CHANNELS, EVENTS } from '@/lib/pusher';
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
@@ -19,56 +9,33 @@ export default async function handler(req: Request, res: Response) {
 
   try {
     await connectDB();
-    const { type, data } = req.body;
+    const { teamName, evaluatorUSN, evaluation } = req.body;
 
-    if (type === 'participants') {
-      const usns = data.map((row: string[]) => row[0]).filter((usn: string) => usn && usn.trim());
-      
-      const participants = await Promise.all(
-        usns.map(async (usn: string) => {
-          try {
-            return await Participant.create({ usn });
-          } catch (error) {
-            if ((error as any).code === 11000) return null;
-            throw error;
-          }
-        })
-      );
+    const newEvaluation = await EvaluationModel.create({
+      teamName,
+      evaluatorUSN,
+      ratings: evaluation.ratings,
+      feedback: evaluation.feedback,
+      submittedAt: new Date()
+    });
 
-      const createdParticipants = participants.filter((p: ParticipantType | null) => p !== null);
-      return res.status(200).json({
-        message: 'Participants uploaded successfully',
-        count: createdParticipants.length
-      });
-    }
+    // Trigger events using Pusher
+    await pusherServer.trigger(CHANNELS.EVALUATION, EVENTS.EVALUATION_SUBMITTED, {
+      team: teamName,
+      evaluator: evaluatorUSN,
+      evaluation,
+      evaluationId: newEvaluation._id
+    });
 
-    if (type === 'teams') {
-      const teams = data.map((row: string[]) => ({
-        name: row[0] || '',
-        members: row.slice(1).filter((member: string) => member && member.trim())
-      })).filter((team: TeamType) => team.name);
+    const teamEvaluations = await EvaluationModel.find({ teamName });
+    await pusherServer.trigger(CHANNELS.EVALUATION, EVENTS.TEAM_EVALUATIONS, {
+      team: teamName,
+      evaluations: teamEvaluations
+    });
 
-      const createdTeams = await Promise.all(
-        teams.map(async (team: TeamType) => {
-          try {
-            return await Team.create(team);
-          } catch (error) {
-            console.error('Error creating team:', error);
-            return null;
-          }
-        })
-      );
-
-      const successfulTeams = createdTeams.filter((t: TeamType | null) => t !== null);
-      return res.status(200).json({
-        message: 'Teams uploaded successfully',
-        count: successfulTeams.length
-      });
-    }
-
-    return res.status(400).json({ message: 'Invalid upload type' });
+    res.status(200).json({ success: true, evaluation: newEvaluation });
   } catch (error) {
     console.error('Upload error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error' });
   }
 } 

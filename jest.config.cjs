@@ -4,15 +4,16 @@ module.exports = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
+      tsconfig: 'tsconfig.json'
     }],
   },
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
+  testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -31,5 +32,4 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(@testing-library|@radix-ui)/)',
   ],
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
 }; 

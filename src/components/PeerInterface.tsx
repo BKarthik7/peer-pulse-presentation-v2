@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import Timer from '@/components/Timer';
 import PeerEvaluationForm from '@/components/PeerEvaluationForm';
 import { useToast } from '@/hooks/use-toast';
-import { io, Socket } from 'socket.io-client';
+import Pusher from 'pusher-js';
 
 interface PeerInterfaceProps {
   usn: string;
@@ -17,28 +17,20 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
   const [currentTeam, setCurrentTeam] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [evaluationForm, setEvaluationForm] = useState<any>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Connect to Socket.IO server using the current origin
-    const socketInstance = io(window.location.origin, {
-      withCredentials: true,
-      path: '/socket.io'
+    // Initialize Pusher
+    const pusherInstance = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+      authEndpoint: '/api/pusher-auth',
     });
 
-    socketInstance.on('connect', () => {
-      console.log('Connected to Socket.IO server');
-    });
+    // Subscribe to the presentation channel
+    const channel = pusherInstance.subscribe('presentation');
 
-    socketInstance.on('connect_error', (error) => {
-      console.error('Socket.IO connection error:', error);
-    });
-
-    setSocket(socketInstance);
-
-    // Set up socket listeners
-    socketInstance.on('presentationStarting', (data: { team: string }) => {
+    // Set up Pusher event listeners
+    channel.bind('presentationStarting', (data: { team: string }) => {
       setCurrentTeam(data.team);
       setPresentationStatus('starting');
       toast({
@@ -47,7 +39,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    socketInstance.on('presentationStarted', (data: { team: string }) => {
+    channel.bind('presentationStarted', (data: { team: string }) => {
       setCurrentTeam(data.team);
       setPresentationStatus('active');
       toast({
@@ -56,7 +48,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    socketInstance.on('presentationEnded', () => {
+    channel.bind('presentationEnded', () => {
       setPresentationStatus('evaluation');
       toast({
         title: "Presentation Ended",
@@ -64,11 +56,11 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    socketInstance.on('timeSync', (data: { time: number }) => {
+    channel.bind('timeSync', (data: { time: number }) => {
       setCurrentTime(data.time);
     });
 
-    socketInstance.on('evaluationForm', (data: { team: string, form: any }) => {
+    channel.bind('evaluationForm', (data: { team: string, form: any }) => {
       setEvaluationForm(data.form);
       toast({
         title: "Evaluation Form Available",
@@ -76,7 +68,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
       });
     });
 
-    socketInstance.on('presentationReset', () => {
+    channel.bind('presentationReset', () => {
       setPresentationStatus('waiting');
       setCurrentTeam('');
       setCurrentTime(0);
@@ -85,7 +77,8 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
 
     // Cleanup on unmount
     return () => {
-      socketInstance.disconnect();
+      channel.unbind_all();
+      pusherInstance.disconnect();
     };
   }, [toast]);
 
@@ -116,6 +109,42 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
         return 'destructive';
       default:
         return 'outline';
+    }
+  };
+
+  const handleEvaluationSubmit = async (evaluationData: any) => {
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'evaluationSubmitted',
+          data: {
+            team: currentTeam,
+            evaluator: usn,
+            evaluation: evaluationData
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit evaluation');
+      }
+
+      toast({
+        title: "Evaluation Submitted",
+        description: "Thank you for your feedback!",
+      });
+      setEvaluationForm(null);
+    } catch (error) {
+      console.error('Error submitting evaluation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit evaluation. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -175,19 +204,7 @@ const PeerInterface: React.FC<PeerInterfaceProps> = ({ usn, onLogout }) => {
                 <PeerEvaluationForm 
                   teamName={currentTeam}
                   evaluatorUSN={usn}
-                  onSubmit={(evaluationData) => {
-                    console.log('Peer evaluation submitted:', evaluationData);
-                    socket?.emit('evaluationSubmitted', {
-                      team: currentTeam,
-                      evaluator: usn,
-                      evaluation: evaluationData
-                    });
-                    toast({
-                      title: "Evaluation Submitted",
-                      description: "Thank you for your feedback!",
-                    });
-                    setEvaluationForm(null);
-                  }}
+                  onSubmit={handleEvaluationSubmit}
                 />
               </CardContent>
             </Card>
