@@ -22,7 +22,7 @@ Follow these steps to run the project locally:
 
 ```sh
 # Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
+git clone https://github.com/BKarthik7/peer-pulse-presentation.git/
 
 # Step 2: Navigate to the project directory
 cd peer-pulse-presentation
