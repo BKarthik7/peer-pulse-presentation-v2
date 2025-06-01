@@ -8,10 +8,13 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'local-app'
+  - job_name: 'vercel-app'
     static_configs:
-      - targets: ['localhost:3001']
+      - targets: ['peer-pulse-presentation.vercel.app']
     metrics_path: '/api/metrics'
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true  # Only use this in development/testing
 
 rule_files:
   - rules.yml
