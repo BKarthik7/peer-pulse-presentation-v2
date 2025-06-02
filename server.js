@@ -179,13 +179,8 @@ app.get('/health', (req, res) => {
 // Serve static files
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Handle all other routes by serving index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
 // New endpoint to get all feedbacks grouped by team name
-app.get('/api/feedbacks', async (req, res) => {
+app.get('/feedbacks', async (req, res) => {
   try {
     await connectDB();
     const evaluations = await Evaluation.find({});
@@ -203,12 +198,16 @@ app.get('/api/feedbacks', async (req, res) => {
       });
       return acc;
     }, {});
-
     res.status(200).json(groupedFeedbacks);
   } catch (error) {
     console.error('Error fetching feedbacks:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
+});
+
+// Handle all other routes by serving index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Export the Express app for Vercel
