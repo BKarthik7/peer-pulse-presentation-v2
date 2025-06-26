@@ -10,6 +10,94 @@ This project demonstrates a comprehensive peer evaluation system that allows use
 - Manage peer review processes
 - Present evaluation data in an intuitive interface
 
+## Screenshots
+
+<h2>Project Images</h2>
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/project/1%20Admin%20Login.png" alt="1 Admin Login" width="200"/><br/>
+      1 Admin Login
+    </td>
+    <td align="center">
+      <img src="images/project/2%20Peer%20Login.png" alt="2 Peer Login" width="200"/><br/>
+      2 Peer Login
+    </td>
+    <td align="center">
+      <img src="images/project/3%20Admin%20Dashboard.png" alt="3 Admin Dashboard" width="200"/><br/>
+      3 Admin Dashboard
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/project/4%20Participants%20and%20Team%20Upload.png" alt="4 Participants and Team Upload" width="200"/><br/>
+      4 Participants and Team Upload
+    </td>
+    <td align="center">
+      <img src="images/project/5%20Presentation.png" alt="5 Presentation" width="200"/><br/>
+      5 Presentation
+    </td>
+    <td align="center">
+      <img src="images/project/6%20Evaluation%20Form%20Send.png" alt="6 Evaluation Form Send" width="200"/><br/>
+      6 Evaluation Form Send
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/project/6%20Evaluation%20Form.png" alt="6 Evaluation Form" width="200"/><br/>
+      6 Evaluation Form
+    </td>
+    <td align="center">
+      <img src="images/project/7%20Peer%20Dashboard%20Time%20Sync.png" alt="7 Peer Dashboard Time Sync" width="200"/><br/>
+      7 Peer Dashboard Time Sync
+    </td>
+    <td align="center">
+      <img src="images/project/8%20Evaluation%20on%20Peer%20Side.png" alt="8 Evaluation on Peer Side" width="200"/><br/>
+      8 Evaluation on Peer Side
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/project/9%20Result.png" alt="9 Result" width="200"/><br/>
+      9 Result
+    </td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
+
+<h2>Monitoring & CICD Images</h2>
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/monitoring_cicd/Deployment%20on%20vercel%20Details.png" alt="Deployment on vercel Details" width="200"/><br/>
+      Deployment on vercel Details
+    </td>
+    <td align="center">
+      <img src="images/monitoring_cicd/Deployment%20on%20vercel%20logs.png" alt="Deployment on vercel logs" width="200"/><br/>
+      Deployment on vercel logs
+    </td>
+    <td align="center">
+      <img src="images/monitoring_cicd/Grafana%20Dashboard%201.png" alt="Grafana Dashboard 1" width="200"/><br/>
+      Grafana Dashboard 1
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/monitoring_cicd/Grafana%20Dashboard%202.png" alt="Grafana Dashboard 2" width="200"/><br/>
+      Grafana Dashboard 2
+    </td>
+    <td align="center">
+      <img src="images/monitoring_cicd/Grafana%20Dashboard%203.png" alt="Grafana Dashboard 3" width="200"/><br/>
+      Grafana Dashboard 3
+    </td>
+    <td></td>
+  </tr>
+</table>
+
+
 ## Getting Started
 
 ### Prerequisites
